@@ -1,3 +1,5 @@
+import * as React from 'react';
+import { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import {
   Box,
@@ -6,6 +8,7 @@ import {
   Flex,
   Heading,
   Icon,
+  Spinner,
   Table,
   Tbody,
   Td,
@@ -20,12 +23,81 @@ import { RiAddLine } from 'react-icons/ri';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { Pagination } from '@/components/Pagination';
+import { getUsers, useUsers } from '@/utils/hooks';
 
-function UserList() {
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
+interface UserListProps {
+  totalCount: number;
+  users: User[];
+}
+
+function UserList(props: UserListProps) {
+  const [page, setPage] = React.useState(1);
+  const { data, isLoading, isFetching, error } = useUsers(page, {
+    initialData: props,
+  });
+
   const isWideVersion = useBreakpointValue({
     base: false,
-    large: true,
+    lg: true,
   });
+
+  const loadingSection = isLoading && (
+    <Flex justify="center" align="center">
+      <Spinner />
+    </Flex>
+  );
+
+  const errorSection = error && (
+    <Flex>
+      <Text>Error while obtaining users data.</Text>
+    </Flex>
+  );
+
+  const usersLists = loadingSection || errorSection || (
+    <>
+      <Table colorScheme="whiteAlpha">
+        <Thead>
+          <Tr>
+            <Th px={['4', '4', '6']} color="gray.300" width="8">
+              <Checkbox colorScheme="pink" />
+            </Th>
+            <Th>User</Th>
+            {isWideVersion && <Th>Register Date</Th>}
+          </Tr>
+        </Thead>
+        <Tbody>
+          {data.users.map(user => (
+            <Tr key={user.id}>
+              <Td px={['4', '4', '6']}>
+                <Checkbox colorScheme="pink" />
+              </Td>
+              <Td>
+                <Box>
+                  <Text fontWeight="bold">{user.name}</Text>
+                  <Text fontSize="small" color="gray.300">
+                    {user.email}
+                  </Text>
+                </Box>
+              </Td>
+              {isWideVersion && <Td>{user.createdAt}</Td>}
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
+      <Pagination
+        currentPage={page}
+        onPageChange={setPage}
+        totalCountOfRegisters={data.totalCount}
+      />
+    </>
+  );
 
   return (
     <Box>
@@ -37,6 +109,9 @@ function UserList() {
           <Flex mb="8" justify="space-between" align="center">
             <Heading size="lg" fontWeight="normal ">
               Users
+              {isFetching && !isLoading && (
+                <Spinner size="sm" color="gray.500" ml={4} />
+              )}
             </Heading>
             <Link href="/users/create" passHref>
               <Button
@@ -50,63 +125,7 @@ function UserList() {
               </Button>
             </Link>
           </Flex>
-
-          <Table colorScheme="whiteAlpha">
-            <Thead>
-              <Tr>
-                <Th px={['4', '4', '6']} color="gray.300" width="8">
-                  <Checkbox colorScheme="pink" />
-                </Th>
-                <Th>User</Th>
-                {isWideVersion && <Th>Register Date</Th>}
-              </Tr>
-            </Thead>
-            <Tbody>
-              <Tr>
-                <Td px={['4', '4', '6']}>
-                  <Checkbox colorScheme="pink" />
-                </Td>
-                <Td>
-                  <Box>
-                    <Text fontWeight="bold">Diogo Pinheiro</Text>
-                    <Text fontSize="small" color="gray.300">
-                      diogo.fgomes.pinheiro@gmail.com
-                    </Text>
-                  </Box>
-                </Td>
-                {isWideVersion && <Td>04 April 2021</Td>}
-              </Tr>
-              <Tr>
-                <Td px={['4', '4', '6']}>
-                  <Checkbox colorScheme="pink" />
-                </Td>
-                <Td>
-                  <Box>
-                    <Text fontWeight="bold">Diogo Pinheiro</Text>
-                    <Text fontSize="small" color="gray.300">
-                      diogo.fgomes.pinheiro@gmail.com
-                    </Text>
-                  </Box>
-                </Td>
-                {isWideVersion && <Td>04 April 2021</Td>}
-              </Tr>
-              <Tr>
-                <Td px="6">
-                  <Checkbox colorScheme="pink" />
-                </Td>
-                <Td>
-                  <Box>
-                    <Text fontWeight="bold">Diogo Pinheiro</Text>
-                    <Text fontSize="small" color="gray.300">
-                      diogo.fgomes.pinheiro@gmail.com
-                    </Text>
-                  </Box>
-                </Td>
-                {isWideVersion && <Td>04 April 2021</Td>}
-              </Tr>
-            </Tbody>
-          </Table>
-          <Pagination />
+          {usersLists}
         </Box>
       </Flex>
     </Box>
@@ -114,3 +133,14 @@ function UserList() {
 }
 
 export default UserList;
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const { users, totalCount } = await getUsers(1);
+
+  return {
+    props: {
+      users,
+      totalCount,
+    },
+  };
+};
